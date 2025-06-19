@@ -97,7 +97,7 @@ DatabaseConnector.connect()
 
 2. **安装MySQL数据库**
    - 下载MySQL 8.0安装包, 安装包地址 https://dev.mysql.com/downloads/windows/installer/8.0.html
-   - 安装时设置root密码为：QAZwsx0823
+   - 安装时设置root密码为：QAZwsx0823( 根据您的代码设置的密码 )
    - 启动MySQL服务
 
 3. **创建项目数据库**
@@ -109,7 +109,7 @@ DatabaseConnector.connect()
 
 1. **下载项目代码**
    ```bash
-   # 进入项目目录  ( 要根据你自己存放 python的地址 更改）！！！
+   # 进入项目目录  ( 要根据你自己存放 python项目的地址 更改）！！！
    cd C:/Users/MSI-NB/PycharmProjects/bankManage
    ```
 
@@ -120,7 +120,7 @@ DatabaseConnector.connect()
 
 3. **配置数据库连接**
    - 打开 `DatabaseConnector.py`
-   - 修改第7行的数据库密码：
+   - 修改第7行的数据库密码：（根据安装mysql的时候设置，这里默认就是 QAZwsx0823）
    ```python
    def __init__(self, host='localhost', user='root', password='你的MySQL密码', database='银行'):
    ```
