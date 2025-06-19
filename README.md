@@ -102,12 +102,11 @@ DatabaseConnector.connect()
 
 3. **创建项目数据库**
    ```sql
-   CREATE DATABASE 银行 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-   ```
+& "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -pQAZwsx0823 -e "CREATE DATABASE IF NOT EXISTS 银行 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"   ```
 
 ### 项目部署
 
-1. **下载项目代码**
+1. **提前下载项目代码**
    ```bash
    # 进入项目目录  ( 要根据你自己存放 python项目的地址 更改）！！！
    cd C:/Users/MSI-NB/PycharmProjects/bankManage
