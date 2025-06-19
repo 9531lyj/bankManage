@@ -96,7 +96,7 @@ DatabaseConnector.connect()
    ```
 
 2. **安装MySQL数据库**
-   - 下载MySQL 8.0安装包
+   - 下载MySQL 8.0安装包, 安装包地址 https://dev.mysql.com/downloads/windows/installer/8.0.html
    - 安装时设置root密码为：QAZwsx0823
    - 启动MySQL服务
 
