@@ -1,0 +1,119 @@
+1.创建转账记录表
+CREATE TABLE IF NOT EXISTS transferInfo (
+  transferID INT AUTO_INCREMENT PRIMARY KEY,
+  fromCardID CHAR(16) NOT NULL,
+  toCardID CHAR(16) NOT NULL,
+  transferAmount NUMERIC(18,2) NOT NULL CHECK (transferAmount > 0),
+  transferDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  remark TEXT,
+  FOREIGN KEY (fromCardID) REFERENCES cardInfo(cardID),
+  FOREIGN KEY (toCardID) REFERENCES cardInfo(cardID)
+);
+
+
+
+2.创建存款/取款触发器
+DELIMITER //
+
+CREATE TRIGGER after_card_balance_update
+AFTER UPDATE ON cardInfo
+FOR EACH ROW
+BEGIN
+  DECLARE operation_type ENUM('存入', '支取');
+  DECLARE amount_diff NUMERIC(18,2);
+  
+  -- 计算余额变化量
+  SET amount_diff = NEW.balance - OLD.balance;
+  
+  -- 确定操作类型
+  IF amount_diff > 0 THEN
+    SET operation_type = '存入';
+  ELSEIF amount_diff < 0 THEN
+    SET operation_type = '支取';
+    SET amount_diff = ABS(amount_diff); -- 取绝对值
+  END IF;
+  
+  -- 如果有余额变化，记录交易
+  IF amount_diff <> 0 THEN
+    INSERT INTO tradeInfo (cardID, tradeMoney, tradeType, remark)
+    VALUES (NEW.cardID, amount_diff, operation_type, 
+            CONCAT('系统自动记录 - 余额变更: ', OLD.balance, ' → ', NEW.balance));
+  END IF;
+END//
+DELIMITER ;
+
+
+
+
+
+
+3. 创建转账存储过程
+
+
+DELIMITER //
+
+CREATE PROCEDURE process_transfer(
+  IN p_fromCard CHAR(16),
+  IN p_toCard CHAR(16),
+  IN p_amount NUMERIC(18,2),
+  IN p_remark TEXT
+)
+BEGIN
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+  
+  START TRANSACTION;
+  
+  -- 验证转出卡余额是否充足
+  IF (SELECT balance FROM cardInfo WHERE cardID = p_fromCard) < p_amount THEN
+    SIGNAL SQLSTATE '45000' 
+    SET MESSAGE_TEXT = '转出卡余额不足';
+  END IF;
+  
+  -- 更新转出卡余额
+  UPDATE cardInfo 
+  SET balance = balance - p_amount 
+  WHERE cardID = p_fromCard;
+  
+  -- 更新转入卡余额
+  UPDATE cardInfo 
+  SET balance = balance + p_amount 
+  WHERE cardID = p_toCard;
+  
+  -- 记录转账信息
+  INSERT INTO transferInfo (fromCardID, toCardID, transferAmount, remark)
+  VALUES (p_fromCard, p_toCard, p_amount, p_remark);
+  
+  -- 记录转出交易
+  INSERT INTO tradeInfo (cardID, tradeMoney, tradeType, remark)
+  VALUES (p_fromCard, p_amount, '支取', 
+          CONCAT('转账至卡号: ', p_toCard, ' - ', IFNULL(p_remark, '')));
+  
+  -- 记录转入交易
+  INSERT INTO tradeInfo (cardID, tradeMoney, tradeType, remark)
+  VALUES (p_toCard, p_amount, '存入', 
+          CONCAT('来自卡号: ', p_fromCard, ' - ', IFNULL(p_remark, '')));
+  
+  COMMIT;
+END//
+
+DELIMITER ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

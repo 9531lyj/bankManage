@@ -1,0 +1,777 @@
+1.数据库连接类 (DatabaseConnector.py)
+import mysql.connector
+from mysql.connector import Error
+
+
+class DatabaseConnector:
+    def __init__(self, host='localhost', user='root', password='QAZwsx0823', database='银行'):
+        """初始化数据库连接"""
+        self.host = host
+        self.user = user
+        self.password = password
+        self.database = database
+        self.connection = None  //不用修改
+        self.cursor = None    //类初始化时的内部状态变量，用于跟踪数据库连接和游标的状态
+
+
+    def connect(self):
+        """连接到数据库"""
+        try:
+            self.connection = mysql.connector.connect(
+                host=self.host,
+                user=self.user,
+                password=self.password,
+                database=self.database
+            )
+            if self.connection.is_connected():
+                self.cursor = self.connection.cursor(dictionary=True)
+                print("成功连接到MySQL数据库")
+                return True
+        except Error as e:
+            print(f"连接数据库时出错: {e}")
+            return False
+
+    def close(self):
+        """关闭数据库连接"""
+        if self.connection and self.connection.is_connected():
+            self.cursor.close()
+            self.connection.close()
+            print("数据库连接已关闭")
+
+def execute_query(self, query, params=None, fetch=True):
+    """执行SQL查询"""
+    try:
+        if not self.connection or not self.connection.is_connected():
+            self.connect()
+            
+        self.cursor.execute(query, params or ())
+        if fetch and query.strip().upper().startswith('SELECT'):
+            return self.cursor.fetchall()
+        self.connection.commit()
+        return True
+    except Error as e:
+        print(f"执行查询时出错: {e}")
+        print(f"出错查询: {query}")
+        print(f"参数: {params}")
+        self.connection.rollback()
+        return False
+
+2. 基础服务类 (BaseService.py)
+import csv
+from datetime import datetime
+from tabulate import tabulate
+
+class BaseService:
+    def __init__(self, db_connector):
+        self.db = db_connector
+    
+    def export_to_csv(self, data, filename):
+        """将数据导出为CSV文件"""
+        try:
+            if not data:
+                print("没有数据可导出")
+                return False
+            
+            keys = data[0].keys()
+            with open(filename, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.DictWriter(f, fieldnames=keys)
+                writer.writeheader()
+                writer.writerows(data)
+            print(f"数据已成功导出到 {filename}")
+            return True
+        except Exception as e:
+            print(f"导出数据时出错: {e}")
+            return False
+    
+    def display_table(self, data, title=None):
+        """以表格形式显示数据"""
+        if not data:
+            print("没有数据显示")
+            return
+        
+        if title:
+            print(f"\n=== {title} ===")
+        
+        print(tabulate(data, headers="keys", tablefmt="grid"))
+
+
+
+
+3. 客户服务类 (CustomerService.py)
+class CustomerService(BaseService):
+ def add_customer(self, name, pid, telephone, address=None):
+    """添加新客户"""
+    # 输入验证
+    if not name or not pid or not telephone:
+        print("姓名、身份证号和电话不能为空")
+        return False
+    
+    if len(pid) != 18:
+        print("身份证号必须为18位")
+        return False
+        
+    query = "INSERT INTO userInfo (customerName, PID, telephone, address) VALUES (%s, %s, %s, %s)"
+    return self.db.execute_query(query, (name, pid, telephone, address), fetch=False)
+    
+    def get_customer_info(self, customer_id=None):
+        """查询客户信息"""
+        if customer_id:
+            query = "SELECT * FROM userInfo WHERE customerID = %s"
+            return self.db.execute_query(query, (customer_id,))
+        else:
+            query = "SELECT * FROM userInfo"
+            return self.db.execute_query(query)
+    
+    def update_customer(self, customer_id, name=None, telephone=None, address=None):
+        """修改客户信息"""
+        updates = []
+        params = []
+        if name:
+            updates.append("customerName = %s")
+            params.append(name)
+        if telephone:
+            updates.append("telephone = %s")
+            params.append(telephone)
+        if address:
+            updates.append("address = %s")
+            params.append(address)
+        
+        if not updates:
+            return False
+        
+        params.append(customer_id)
+        query = f"UPDATE userInfo SET {', '.join(updates)} WHERE customerID = %s"
+        return self.db.execute_query(query, params, fetch=False)
+    
+    def delete_customer(self, customer_id):
+        """删除客户信息"""
+        query = "DELETE FROM userInfo WHERE customerID = %s"
+        return self.db.execute_query(query, (customer_id,), fetch=False)
+    
+    def search_customers(self, keyword):
+        """搜索客户"""
+        query = """
+            SELECT * FROM userInfo 
+            WHERE customerName LIKE %s OR telephone LIKE %s OR PID LIKE %s
+        """
+        search_term = f"%{keyword}%"
+        return self.db.execute_query(query, (search_term, search_term, search_term))
+
+
+
+
+
+
+4.银行卡服务类 (CardService.py)
+class CardService(BaseService):
+    def add_card(self, card_id, saving_id, open_money, balance, customer_id, passcode='888888', currency='RMB'):
+        """添加银行卡"""
+        query = """INSERT INTO cardInfo 
+                   (cardID, curID, savingID, openMoney, balance, pass, customerID) 
+                   VALUES (%s, %s, %s, %s, %s, %s, %s)"""
+        return self.db.execute_query(query, (card_id, currency, saving_id, open_money, balance, passcode, customer_id), fetch=False)
+    
+    def get_card_info(self, card_id=None, customer_id=None):
+        """查询银行卡信息"""
+        if card_id:
+            query = "SELECT * FROM cardInfo WHERE cardID = %s"
+            return self.db.execute_query(query, (card_id,))
+        elif customer_id:
+            query = "SELECT * FROM cardInfo WHERE customerID = %s"
+            return self.db.execute_query(query, (customer_id,))
+        else:
+            query = """SELECT c.*, u.customerName 
+                       FROM cardInfo c 
+                       JOIN userInfo u ON c.customerID = u.customerID"""
+            return self.db.execute_query(query)
+    
+    def report_loss(self, card_id):
+        """挂失银行卡"""
+        query = "UPDATE cardInfo SET IsReportLoss = '是' WHERE cardID = %s"
+        return self.db.execute_query(query, (card_id,), fetch=False)
+    
+    def change_card_password(self, card_id, new_password):
+    """修改银行卡密码"""
+    # 密码复杂度检查
+    if len(new_password) != 6 or not new_password.isdigit():
+        print("密码必须为6位数字")
+        return False
+        
+    query = "UPDATE cardInfo SET pass = %s WHERE cardID = %s"
+    return self.db.execute_query(query, (new_password, card_id), fetch=False)
+    
+    def update_card_info(self, card_id, saving_id=None, balance=None):
+        """修改银行卡信息"""
+        updates = []
+        params = []
+        if saving_id:
+            updates.append("savingID = %s")
+            params.append(saving_id)
+        if balance:
+            updates.append("balance = %s")
+            params.append(balance)
+        
+        if not updates:
+            return False
+        
+        params.append(card_id)
+        query = f"UPDATE cardInfo SET {', '.join(updates)} WHERE cardID = %s"
+        return self.db.execute_query(query, params, fetch=False)
+    
+    def delete_card(self, card_id):
+        """删除银行卡"""
+        query = "DELETE FROM cardInfo WHERE cardID = %s"
+        return self.db.execute_query(query, (card_id,), fetch=False)
+    
+    def deposit(self, card_id, amount):
+        """存款"""
+        query = "UPDATE cardInfo SET balance = balance + %s WHERE cardID = %s"
+        return self.db.execute_query(query, (amount, card_id), fetch=False)
+    
+    def withdraw(self, card_id, amount):
+        """取款"""
+        query = "UPDATE cardInfo SET balance = balance - %s WHERE cardID = %s AND balance >= %s"
+        return self.db.execute_query(query, (amount, card_id, amount), fetch=False)
+    
+    def check_balance(self, card_id):
+        """查询余额"""
+        query = "SELECT balance FROM cardInfo WHERE cardID = %s"
+        result = self.db.execute_query(query, (card_id,))
+        return result[0]['balance'] if result else None
+    
+    def transfer(self, from_card, to_card, amount, remark=None):
+        """转账"""
+        query = "CALL process_transfer(%s, %s, %s, %s)"
+        return self.db.execute_query(query, (from_card, to_card, amount, remark), fetch=False)
+
+
+
+
+
+
+
+5. 存款类型服务类 (DepositService.py)
+class DepositService(BaseService):
+    def add_deposit_type(self, saving_name, descrip, term=None):
+        """添加存款类型"""
+        if term:
+            query = "INSERT INTO deposit (savingName, descrip, term) VALUES (%s, %s, %s)"
+            return self.db.execute_query(query, (saving_name, descrip, term), fetch=False)
+        else:
+            query = "INSERT INTO deposit (savingName, descrip) VALUES (%s, %s)"
+            return self.db.execute_query(query, (saving_name, descrip), fetch=False)
+    
+    def get_deposit_types(self, saving_id=None):
+        """查询存款类型"""
+        if saving_id:
+            query = "SELECT * FROM deposit WHERE savingID = %s"
+            return self.db.execute_query(query, (saving_id,))
+        else:
+            query = "SELECT * FROM deposit"
+            return self.db.execute_query(query)
+    
+    def update_deposit_type(self, saving_id, saving_name=None, descrip=None, term=None):
+        """修改存款类型信息"""
+        updates = []
+        params = []
+        if saving_name:
+            updates.append("savingName = %s")
+            params.append(saving_name)
+        if descrip:
+            updates.append("descrip = %s")
+            params.append(descrip)
+        if term:
+            updates.append("term = %s")
+            params.append(term)
+        
+        if not updates:
+            return False
+        
+        params.append(saving_id)
+        query = f"UPDATE deposit SET {', '.join(updates)} WHERE savingID = %s"
+        return self.db.execute_query(query, params, fetch=False)
+    
+    def delete_deposit_type(self, saving_id):
+        """删除存款类型"""
+        query = "DELETE FROM deposit WHERE savingID = %s"
+        return self.db.execute_query(query, (saving_id,), fetch=False)
+
+
+
+
+6.交易服务类 (TransactionService.py)
+class TransactionService(BaseService):
+    def get_transactions(self, card_id=None, start_date=None, end_date=None):
+        """查询交易记录"""
+        query = "SELECT * FROM tradeInfo"
+        conditions = []
+        params = []
+        
+        if card_id:
+            conditions.append("cardID = %s")
+            params.append(card_id)
+        if start_date:
+            conditions.append("tradeDate >= %s")
+            params.append(start_date)
+        if end_date:
+            conditions.append("tradeDate <= %s")
+            params.append(end_date)
+        
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        
+        query += " ORDER BY tradeDate DESC"
+        return self.db.execute_query(query, params)
+    
+    def delete_transaction(self, transaction_id):
+        """删除交易记录"""
+        query = "DELETE FROM tradeInfo WHERE tradeID = %s"
+        return self.db.execute_query(query, (transaction_id,), fetch=False)
+    
+    def get_monthly_summary(self, start_date, end_date, customer_id=None):
+        """获取月度汇总数据"""
+        query = """SELECT 
+                     c.cardID, 
+                     u.customerName,
+                     SUM(CASE WHEN t.tradeType = '存入' THEN t.tradeMoney ELSE 0 END) AS totalDeposit,
+                     SUM(CASE WHEN t.tradeType = '支取' THEN t.tradeMoney ELSE 0 END) AS totalWithdrawal,
+                     COUNT(t.tradeID) AS transactionCount
+                   FROM tradeInfo t
+                   JOIN cardInfo c ON t.cardID = c.cardID
+                   JOIN userInfo u ON c.customerID = u.customerID
+                   WHERE t.tradeDate BETWEEN %s AND %s"""
+        
+        params = [start_date, end_date]
+        
+        if customer_id:
+            query += " AND c.customerID = %s"
+            params.append(customer_id)
+        
+        query += " GROUP BY c.cardID, u.customerName"
+        return self.db.execute_query(query, params)
+    
+    def get_yearly_summary(self, year, customer_id=None):
+        """获取年度汇总数据"""
+        query = """SELECT 
+                     YEAR(t.tradeDate) AS year,
+                     MONTH(t.tradeDate) AS month,
+                     u.customerName,
+                     c.cardID,
+                     SUM(CASE WHEN t.tradeType = '存入' THEN t.tradeMoney ELSE 0 END) AS totalDeposit,
+                     SUM(CASE WHEN t.tradeType = '支取' THEN t.tradeMoney ELSE 0 END) AS totalWithdrawal,
+                     COUNT(t.tradeID) AS transactionCount
+                   FROM tradeInfo t
+                   JOIN cardInfo c ON t.cardID = c.cardID
+                   JOIN userInfo u ON c.customerID = u.customerID
+                   WHERE YEAR(t.tradeDate) = %s"""
+        
+        params = [year]
+        
+        if customer_id:
+            query += " AND c.customerID = %s"
+            params.append(customer_id)
+        
+        query += " GROUP BY YEAR(t.tradeDate), MONTH(t.tradeDate), u.customerName, c.cardID"
+        return self.db.execute_query(query, params)
+
+
+
+
+
+
+7.报表服务类 (ReportService.py)
+class ReportService(BaseService):
+    def __init__(self, db_connector, transaction_service):
+        super().__init__(db_connector)
+        self.transaction_service = transaction_service
+    
+    def generate_report(self, report_type, start_date, end_date, card_id=None, customer_id=None, export_format='CSV'):
+        """生成报表"""
+        # 首先插入报表记录
+        query = """INSERT INTO Report 
+                   (ReportType, StartDate, EndDate, CardID, CustomerID, ExportFormat) 
+                   VALUES (%s, %s, %s, %s, %s, %s)"""
+        self.db.execute_query(query, (report_type, start_date, end_date, card_id, customer_id, export_format), fetch=False)
+        
+        # 根据报表类型获取数据
+        if report_type == '交易明细':
+            data = self.transaction_service.get_transactions(card_id, start_date, end_date)
+            filename = f"transaction_report_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
+        elif report_type == '月度汇总':
+            data = self.transaction_service.get_monthly_summary(start_date, end_date, customer_id)
+            filename = f"monthly_summary_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
+        elif report_type == '年度汇总':
+            data = self.transaction_service.get_yearly_summary(start_date.year, customer_id)
+            filename = f"yearly_summary_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
+        elif report_type == '账户统计':
+            data = self.get_account_statistics(customer_id)
+            filename = f"account_statistics_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
+        else:
+            print("无效的报表类型")
+            return False
+        
+        # 导出数据
+        if data:
+            return self.export_to_csv(data, filename)
+        return False
+    
+    def get_account_statistics(self, customer_id=None):
+        """获取账户统计数据"""
+        query = """SELECT 
+                     u.customerID,
+                     u.customerName,
+                     COUNT(DISTINCT c.cardID) AS cardCount,
+                     SUM(c.balance) AS totalBalance,
+                     COUNT(t.tradeID) AS transactionCount
+                   FROM userInfo u
+                   LEFT JOIN cardInfo c ON u.customerID = c.customerID
+                   LEFT JOIN tradeInfo t ON c.cardID = t.cardID"""
+        
+        params = []
+        
+        if customer_id:
+            query += " WHERE u.customerID = %s"
+            params.append(customer_id)
+        
+        query += " GROUP BY u.customerID, u.customerName"
+        return self.db.execute_query(query, params)
+
+
+
+
+
+8.数据库初始化类 (DatabaseInitializer.py)
+class DatabaseInitializer:
+    def __init__(self, db_connector):
+        self.db = db_connector
+    
+    def create_views(self):
+        """创建视图以增强查询友好性"""
+        views = {
+            'customer_card_view': """
+                CREATE OR REPLACE VIEW customer_card_view AS
+                SELECT 
+                    u.customerID, u.customerName, u.PID, u.telephone, u.address,
+                    c.cardID, c.curID, c.balance, c.openDate, c.IsReportLoss,
+                    d.savingName, d.descrip AS depositDescription
+                FROM userInfo u
+                JOIN cardInfo c ON u.customerID = c.customerID
+                JOIN deposit d ON c.savingID = d.savingID
+            """,
+            'transaction_detail_view': """
+                CREATE OR REPLACE VIEW transaction_detail_view AS
+                SELECT 
+                    t.tradeID, t.cardID, t.tradeDate, t.tradeMoney, t.tradeType, t.remark,
+                    c.customerID, u.customerName
+                FROM tradeInfo t
+                JOIN cardInfo c ON t.cardID = c.cardID
+                JOIN userInfo u ON c.customerID = u.customerID
+            """,
+            'account_summary_view': """
+                CREATE OR REPLACE VIEW account_summary_view AS
+                SELECT 
+                    u.customerID, u.customerName,
+                    COUNT(DISTINCT c.cardID) AS cardCount,
+                    SUM(c.balance) AS totalBalance,
+                    MAX(c.openDate) AS latestOpenDate
+                FROM userInfo u
+                LEFT JOIN cardInfo c ON u.customerID = c.customerID
+                GROUP BY u.customerID, u.customerName
+            """
+        }
+        
+        for name, sql in views.items():
+            try:
+                self.db.execute_query(sql, fetch=False)
+                print(f"视图 {name} 创建成功")
+            except Error as e:
+                print(f"创建视图 {name} 时出错: {e}")
+    
+    def setup_triggers(self):
+        """设置触发器"""
+        # 检查触发器是否已存在
+        self.db.execute_query("""
+            SELECT TRIGGER_NAME 
+            FROM INFORMATION_SCHEMA.TRIGGERS 
+            WHERE TRIGGER_NAME = 'after_card_balance_update'
+        """)
+        if not self.db.cursor.fetchone():
+            # 创建余额变更触发器
+            try:
+                self.db.execute_query("""
+                    CREATE TRIGGER after_card_balance_update
+                    AFTER UPDATE ON cardInfo
+                    FOR EACH ROW
+                    BEGIN
+                      DECLARE operation_type ENUM('存入', '支取');
+                      DECLARE amount_diff NUMERIC(18,2);
+                      
+                      -- 计算余额变化量
+                      SET amount_diff = NEW.balance - OLD.balance;
+                      
+                      -- 确定操作类型
+                      IF amount_diff > 0 THEN
+                        SET operation_type = '存入';
+                      ELSEIF amount_diff < 0 THEN
+                        SET operation_type = '支取';
+                        SET amount_diff = ABS(amount_diff);
+                      END IF;
+                      
+                      -- 如果有余额变化，记录交易
+                      IF amount_diff <> 0 THEN
+                        INSERT INTO tradeInfo (cardID, tradeMoney, tradeType, remark)
+                        VALUES (NEW.cardID, amount_diff, operation_type, 
+                                CONCAT('系统自动记录 - 余额变更: ', OLD.balance, ' → ', NEW.balance));
+                      END IF;
+                    END
+                """, fetch=False)
+                print("触发器 after_card_balance_update 创建成功")
+            except Error as e:
+                print(f"创建触发器时出错: {e}")
+        
+        # 检查转账存储过程是否已存在
+        self.db.execute_query("""
+            SELECT ROUTINE_NAME 
+            FROM INFORMATION_SCHEMA.ROUTINES 
+            WHERE ROUTINE_NAME = 'process_transfer'
+        """)
+        if not self.db.cursor.fetchone():
+            # 创建转账存储过程
+            try:
+                self.db.execute_query("""
+                    CREATE PROCEDURE process_transfer(
+                      IN p_fromCard CHAR(16),
+                      IN p_toCard CHAR(16),
+                      IN p_amount NUMERIC(18,2),
+                      IN p_remark TEXT
+                    )
+                    BEGIN
+                      DECLARE EXIT HANDLER FOR SQLEXCEPTION
+                      BEGIN
+                        ROLLBACK;
+                        RESIGNAL;
+                      END;
+                      
+                      START TRANSACTION;
+                      
+                      -- 验证转出卡余额是否充足
+                      IF (SELECT balance FROM cardInfo WHERE cardID = p_fromCard) < p_amount THEN
+                        SIGNAL SQLSTATE '45000' 
+                        SET MESSAGE_TEXT = '转出卡余额不足';
+                      END IF;
+                      
+                      -- 更新转出卡余额
+                      UPDATE cardInfo 
+                      SET balance = balance - p_amount 
+                      WHERE cardID = p_fromCard;
+                      
+                      -- 更新转入卡余额
+                      UPDATE cardInfo 
+                      SET balance = balance + p_amount 
+                      WHERE cardID = p_toCard;
+                      
+                      -- 记录转账信息
+                      INSERT INTO transferInfo (fromCardID, toCardID, transferAmount, remark)
+                      VALUES (p_fromCard, p_toCard, p_amount, p_remark);
+                      
+                      -- 记录转出交易
+                      INSERT INTO tradeInfo (cardID, tradeMoney, tradeType, remark)
+                      VALUES (p_fromCard, p_amount, '支取', 
+                              CONCAT('转账至卡号: ', p_toCard, ' - ', IFNULL(p_remark, '')));
+                      
+                      -- 记录转入交易
+                      INSERT INTO tradeInfo (cardID, tradeMoney, tradeType, remark)
+                      VALUES (p_toCard, p_amount, '存入', 
+                              CONCAT('来自卡号: ', p_fromCard, ' - ', IFNULL(p_remark, '')));
+                      
+                      COMMIT;
+                    END
+                """, fetch=False)
+                print("存储过程 process_transfer 创建成功")
+            except Error as e:
+                print(f"创建存储过程时出错: {e}")
+
+
+
+
+
+
+
+
+
+
+
+9.主系统类 (BankSystem.py)
+from DatabaseConnector import DatabaseConnector
+from CustomerService import CustomerService
+from CardService import CardService
+from DepositService import DepositService
+from TransactionService import TransactionService
+from ReportService import ReportService
+from DatabaseInitializer import DatabaseInitializer
+
+class BankSystem:
+    def __init__(self):
+        """初始化银行系统"""
+        self.db = DatabaseConnector()
+        if not self.db.connect():
+            raise Exception("无法连接到数据库")
+        
+        # 初始化所有服务
+        self.customer_service = CustomerService(self.db)
+        self.card_service = CardService(self.db)
+        self.deposit_service = DepositService(self.db)
+        self.transaction_service = TransactionService(self.db)
+        self.report_service = ReportService(self.db, self.transaction_service)
+        
+        # 初始化数据库视图和触发器
+        db_initializer = DatabaseInitializer(self.db)
+        db_initializer.create_views()
+        db_initializer.setup_triggers()
+    
+    def close(self):
+        """关闭系统"""
+        self.db.close()
+    
+    def customer_login(self, card_id, password):
+        """客户登录"""
+        query = "SELECT * FROM cardInfo WHERE cardID = %s AND pass = %s AND IsReportLoss = '否'"
+        result = self.db.execute_query(query, (card_id, password))
+        return result[0] if result else None
+    
+    def admin_menu(self):
+        """管理员菜单"""
+        while True:
+            print("\n=== 银行管理系统 - 管理员模块 ===")
+            print("1. 客户管理")
+            print("2. 银行卡管理")
+            print("3. 存款管理")
+            print("4. 交易管理")
+            print("5. 报表管理")
+            print("0. 退出")
+            
+            choice = input("请选择操作: ")
+            
+            if choice == '1':
+                self.customer_management()
+            elif choice == '2':
+                self.card_management()
+            elif choice == '3':
+                self.deposit_management()
+            elif choice == '4':
+                self.transaction_management()
+            elif choice == '5':
+                self.report_management()
+            elif choice == '0':
+                break
+            else:
+                print("无效选择，请重新输入")
+    
+    def customer_menu(self, card_info):
+        """客户菜单"""
+        while True:
+            print("\n=== 银行管理系统 - 客户模块 ===")
+            print(f"当前卡号: {card_info['cardID']} 余额: {card_info['balance']}")
+            print("1. 存款")
+            print("2. 取款")
+            print("3. 转账")
+            print("4. 查询余额")
+            print("5. 挂失")
+            print("6. 修改密码")
+            print("7. 查看交易记录")
+            print("0. 退出")
+            
+            choice = input("请选择操作: ")
+            
+            if choice == '1':
+                amount = float(input("请输入存款金额: "))
+                if self.card_service.deposit(card_info['cardID'], amount):
+                    print("存款成功")
+                else:
+                    print("存款失败")
+            elif choice == '2':
+                amount = float(input("请输入取款金额: "))
+                if self.card_service.withdraw(card_info['cardID'], amount):
+                    print("取款成功")
+                else:
+                    print("取款失败，可能是余额不足")
+            elif choice == '3':
+                to_card = input("请输入转入卡号: ")
+                amount = float(input("请输入转账金额: "))
+                remark = input("请输入备注(可选): ")
+                if self.card_service.transfer(card_info['cardID'], to_card, amount, remark):
+                    print("转账成功")
+                else:
+                    print("转账失败")
+            elif choice == '4':
+                balance = self.card_service.check_balance(card_info['cardID'])
+                print(f"当前余额: {balance}")
+            elif choice == '5':
+                if self.card_service.report_loss(card_info['cardID']):
+                    print("挂失成功")
+                    break  # 挂失后退出系统
+                else:
+                    print("挂失失败")
+            elif choice == '6':
+                old_pass = input("请输入旧密码: ")
+                new_pass = input("请输入新密码: ")
+                if self.card_service.change_card_password(card_info['cardID'], old_pass, new_pass):
+                    print("密码修改成功")
+                else:
+                    print("密码修改失败")
+            elif choice == '7':
+                transactions = self.transaction_service.get_transactions(card_info['cardID'])
+                if transactions:
+                    self.display_table(transactions, "交易记录")
+                else:
+                    print("没有交易记录")
+            elif choice == '0':
+                break
+            else:
+                print("无效选择，请重新输入")
+    
+    # 其他管理子菜单方法类似，可以根据需要实现
+    
+    def main_menu(self):
+        """主菜单"""
+        while True:
+            print("\n=== 银行管理系统 ===")
+            print("1. 管理员登录")
+            print("2. 客户登录")
+            print("0. 退出系统")
+            
+            choice = input("请选择操作: ")
+            
+            if choice == '1':
+                # 简单模拟管理员登录
+                username = input("请输入管理员用户名: ")
+                password = input("请输入管理员密码: ")
+                if username == "admin" and password == "admin123":
+                    self.admin_menu()
+                else:
+                    print("管理员用户名或密码错误")
+            elif choice == '2':
+                card_id = input("请输入卡号: ")
+                password = input("请输入密码: ")
+                card_info = self.customer_login(card_id, password)
+                if card_info:
+                    if card_info['IsReportLoss'] == '是':
+                        print("该卡已挂失，无法登录")
+                    else:
+                        self.customer_menu(card_info)
+                else:
+                    print("卡号或密码错误")
+            elif choice == '0':
+                self.close()
+                print("感谢使用银行管理系统，再见！")
+                break
+            else:
+                print("无效选择，请重新输入")
+
+# 启动系统
+if __name__ == "__main__":
+    try:
+        bank_system = BankSystem()
+        bank_system.main_menu()
+    except Exception as e:
+        print(f"系统启动失败: {e}")
