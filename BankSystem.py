@@ -88,7 +88,7 @@ class BankSystem:
         username = input("请输入管理员用户名: ").strip()
         password = input("请输入管理员密码: ").strip()
         
-        # 简单的管理员验证（实际项目中应该从数据库验证）
+        # 简单的管理员验证
         if username == "admin" and password == "admin123":
             print("✅ 管理员登录成功")
             self.admin_menu()

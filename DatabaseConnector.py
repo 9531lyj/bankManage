@@ -201,18 +201,18 @@ class DatabaseConnector:
             # 确保数据库连接有效
             if not self.connection or not self.connection.is_connected():
                 self.connect()
-                
+
             # 执行SQL语句
             self.cursor.execute(query, params or ())
-            
+
             # 如果是SELECT查询且需要获取结果
             if fetch and query.strip().upper().startswith('SELECT'):
                 return self.cursor.fetchall()
-            
+
             # 提交事务（对于INSERT、UPDATE、DELETE操作）
             self.connection.commit()
             return True
-            
+
         except Error as e:
             print(f"执行查询时出错: {e}")
             print(f"出错查询: {query}")

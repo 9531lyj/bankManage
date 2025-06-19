@@ -1,0 +1,97 @@
+# PyCharm IDE files
+.idea/
+
+# Python virtual environment (if you have one in the project directory)
+venv/
+# Or common names like:
+# .venv/
+# env/
+# ENV/
+
+# Python compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Personal files (example)
+# local_settings.py
+# secrets.json
+
+# Project specific files
+# Generated CSV reports
+*_report_*.csv
+transaction_report_*.csv
+all_customers_*.csv
+all_cards_*.csv
+monthly_summary_*.csv
+yearly_summary_*.csv
+account_statistics_*.csv
+
+# Test files (optional)
+test_*.py
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
