@@ -102,9 +102,10 @@ DatabaseConnector.connect()
    - 安装时设置root密码为：QAZwsx0823( 根据您的代码设置的密码 )
    - 启动MySQL服务
 
-3. **创建项目数据库**
+3. **创建项目数据库**  在powershell中运行
    ```sql
-& "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -pQAZwsx0823 -e "CREATE DATABASE IF NOT EXISTS 银行 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"   ```
+& "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -pQAZwsx0823 -e "CREATE DATABASE IF NOT EXISTS 银行 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"  
+    ```
 
 ### 项目部署
 
