@@ -109,7 +109,7 @@ DatabaseConnector.connect()
 
 1. **下载项目代码**
    ```bash
-   # 进入项目目录
+   # 进入项目目录  ( 要根据你自己存放 python的地址 更改）！！！
    cd C:/Users/MSI-NB/PycharmProjects/bankManage
    ```
 
